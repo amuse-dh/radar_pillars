@@ -38,7 +38,7 @@ class Config:
         self.val_point_cloud_path = "/root/datasets/dataset/mobis/val/pcl_filter/"
         self.val_label_path = "/root/datasets/dataset/mobis/val/labels/"
         
-        self.num_input_features = 4  # x, y, z, intensity
+        self.num_input_features = 8  # x, y, z, intensity, vx, vy, vz, amplitude # test the 8 features
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         
         # Point cloud 
