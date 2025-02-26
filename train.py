@@ -155,7 +155,6 @@ def train_one_epoch(model, train_loader, criterion, optimizer, scheduler, epoch,
     return avg_loss, avg_cls_loss, avg_reg_loss
 
 def validate(model, val_loader, criterion, config, writer, epoch):
-    
     model.eval()
     total_loss = 0
     total_cls_loss = 0
