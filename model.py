@@ -208,7 +208,7 @@ class RadarPillars(nn.Module):
             nn.Conv2d(total_channels, config.num_classes + 6, kernel_size=1)
         )
         
-        # ÅëÇÕµÈ Çìµå (yaw Á¦¿Ü: 6 regression values)
+        # ï¿½ï¿½ï¿½Õµï¿½ ï¿½ï¿½ï¿½ (yaw ï¿½ï¿½ï¿½ï¿½: 6 regression values)
         #self.head = nn.Conv2d(3*C, config.num_anchors * (1 + config.num_classes + 6), 1)
     
     def create_pseudo_image(self, pillar_features, center_coords):
