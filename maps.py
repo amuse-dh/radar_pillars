@@ -295,7 +295,7 @@ def post_process_predictions(cls_preds, reg_preds, config, confidence_threshold=
     
     for b in range(batch_size):
         # Get confidence scores and class indices
-        confidence, class_ids = torch.max(cls_preds[b].sigmoid(), dim=-1)
+        confidence, class_ids = torch.max(torch.softmax(cls_preds[b], dim=-1), dim=-1)
         
         # Get valid predictions (confidence > threshold)
         valid_mask = confidence > confidence_threshold
@@ -316,7 +316,7 @@ def post_process_predictions(cls_preds, reg_preds, config, confidence_threshold=
         
         frame_predictions = []
         for conf, cls_id, reg in zip(valid_confidence, valid_class_ids, valid_reg):
-            cx, cy, cz, l, w, h, yaw = reg.tolist()
+            cx, cy, cz, h, w, l, yaw = reg.tolist()
             class_name = config.class_names[cls_id.item()]
             
             # Format: class_name 0 0 0 0 0 0 0 height width length cx cy cz yaw confidence
