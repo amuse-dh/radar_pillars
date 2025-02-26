@@ -13,27 +13,50 @@ class RadarDataset(Dataset):
         if split == "train":
             self.point_cloud_path = Path(config.train_point_cloud_path)
             self.label_path = Path(config.train_label_path)
-        else:
+            self.point_cloud_files = sorted(list(self.point_cloud_path.glob('*.bin')))
+            self.label_files = sorted(list(self.label_path.glob('*.txt')))
+            
+            self.label_files = [
+            label_file for label_file in self.label_files 
+            if (self.point_cloud_path / (label_file.stem + '.bin')).exists()
+            ]
+            self.point_cloud_files = [
+                pc_file for pc_file in self.point_cloud_files 
+                if (self.label_path / (pc_file.stem + '.txt')).exists()
+            ]
+            
+            print("pcl len : ", len(self.point_cloud_files))
+            print("label len : ", len(self.label_files))
+            
+            assert len(self.point_cloud_files) == len(self.label_files), \
+                "Number of point cloud files and label files must match"
+            
+        elif split == "val":
+            
             self.point_cloud_path = Path(config.val_point_cloud_path)
             self.label_path = Path(config.val_label_path)
+            self.point_cloud_files = sorted(list(self.point_cloud_path.glob('*.bin')))
+            self.label_files = sorted(list(self.label_path.glob('*.txt')))
             
-        self.point_cloud_files = sorted(list(self.point_cloud_path.glob('*.bin')))
-        self.label_files = sorted(list(self.label_path.glob('*.txt')))
-        
-        '''
-        self.point_cloud_files = [
-            pc_file for pc_file in self.point_cloud_files 
-            if (self.label_path / (pc_file.stem + '.txt')).exists()
-        ]
-        '''
-        
-        self.label_files = [
-            label for label in self.label_files 
-            if (self.point_cloud_path / (label.stem + '.bin')).exists()
-        ]
+            self.label_files = [
+            label_file for label_file in self.label_files 
+            if (self.point_cloud_path / (label_file.stem + '.bin')).exists()
+            ]
+            self.point_cloud_files = [
+                pc_file for pc_file in self.point_cloud_files 
+                if (self.label_path / (pc_file.stem + '.txt')).exists()
+            ]
             
-        assert len(self.point_cloud_files) == len(self.label_files), \
-            "Number of point cloud files and label files must match"
+            print("pcl len : ", len(self.point_cloud_files))
+            print("label len : ", len(self.label_files))
+            
+            assert len(self.point_cloud_files) == len(self.label_files), \
+                "Number of point cloud files and label files must match"
+                
+        
+        else:
+            self.point_cloud_path = Path(config.inference_data_path)
+            self.point_cloud_files = sorted(list(self.point_cloud_path.glob('*.bin')))
     
     def __len__(self):
         return len(self.point_cloud_files)
@@ -49,20 +72,20 @@ class RadarDataset(Dataset):
             reg_masks = []
             file_names = []
             
-            # πËƒ° ≥ª √÷¥Î pillar ∞≥ºˆ √£±‚
+            # Î∞∞Ïπò ÎÇ¥ ÏµúÎåÄ pillar Í∞úÏàò Ï∞æÍ∏∞
             max_pillars_in_batch = max(b[0].shape[0] for b in batch)
             
             for sample in batch:
                 pillar = sample[0] if torch.is_tensor(sample[0]) else torch.from_numpy(sample[0])
                 center_coord = sample[1] if torch.is_tensor(sample[1]) else torch.from_numpy(sample[1])
                 
-                # ∆–µ˘µ» pillar ª˝º∫
+                # Ìå®Îî©Îêú pillar ÏÉùÏÑ±
                 padded_pillar = torch.zeros((max_pillars_in_batch, pillar.shape[1], pillar.shape[2]), 
                                           dtype=torch.float32)
                 padded_pillar[:pillar.shape[0]] = pillar
                 points.append(padded_pillar)
                 
-                # center_coordsµµ ∞∞¿∫ πÊΩƒ¿∏∑Œ ∆–µ˘
+                # center_coordsÎèÑ Í∞ôÏùÄ Î∞©ÏãùÏúºÎ°ú Ìå®Îî©
                 padded_center = torch.zeros((max_pillars_in_batch, center_coord.shape[1]), 
                                           dtype=torch.float32)
                 padded_center[:center_coord.shape[0]] = center_coord
@@ -82,7 +105,7 @@ class RadarDataset(Dataset):
             reg_masks = torch.stack(reg_masks)
                 
             return points, center_coords, masks, cls_targets, reg_targets, reg_masks, file_names
-        
+            
         except Exception as e:
             print(f"Error in collate_fn: {str(e)}")
             print(f"Batch shapes:")
@@ -94,11 +117,57 @@ class RadarDataset(Dataset):
                     else:
                         print(f"  Item {j} type: {type(item)}")
             raise
+
+    def inf_collate_fn(batch):      
+        try:
+            points = []
+            center_coords = []
+            masks = []
+            file_names = []
             
-              
+            # Î∞∞Ïπò ÎÇ¥ ÏµúÎåÄ pillar Í∞úÏàò Ï∞æÍ∏∞
+            max_pillars_in_batch = max(b[0].shape[0] for b in batch)
+            
+            for sample in batch:
+                pillar = sample[0] if torch.is_tensor(sample[0]) else torch.from_numpy(sample[0])
+                center_coord = sample[1] if torch.is_tensor(sample[1]) else torch.from_numpy(sample[1])
+                
+                # Ìå®Îî©Îêú pillar ÏÉùÏÑ±
+                padded_pillar = torch.zeros((max_pillars_in_batch, pillar.shape[1], pillar.shape[2]), 
+                                          dtype=torch.float32)
+                padded_pillar[:pillar.shape[0]] = pillar
+                points.append(padded_pillar)
+                
+                # center_coordsÎèÑ Í∞ôÏùÄ Î∞©ÏãùÏúºÎ°ú Ìå®Îî©
+                padded_center = torch.zeros((max_pillars_in_batch, center_coord.shape[1]), 
+                                          dtype=torch.float32)
+                padded_center[:center_coord.shape[0]] = center_coord
+                center_coords.append(padded_center)
+                
+                masks.append(torch.as_tensor(sample[2]))
+                file_names.append(sample[3])
+            
+            points = torch.stack(points)
+            center_coords = torch.stack(center_coords)
+            masks = torch.stack(masks)
+                
+            return points, center_coords, masks, file_names
+            
+        except Exception as e:
+            print(f"Error in collate_fn: {str(e)}")
+            print(f"Batch shapes:")
+            for i, sample in enumerate(batch):
+                print(f"Sample {i}:")
+                for j, item in enumerate(sample):
+                    if isinstance(item, (torch.Tensor, np.ndarray)):
+                        print(f"  Item {j} shape: {item.shape}")
+                    else:
+                        print(f"  Item {j} type: {type(item)}")
+            raise
+
     def read_point_cloud(self, bin_file):
         
-        points = np.fromfile(bin_file, dtype=np.float32).reshape(-1, self.config.point_feature_dim)
+        points = np.fromfile(bin_file, dtype=np.float32).reshape(-1, self.config.point_feature_dim)[:, :4]
         return points
     
     def read_labels(self, label_file):
@@ -116,7 +185,6 @@ class RadarDataset(Dataset):
                     
                 else:
                     label[0] = 2.0
-                    
                     
                 labels.append([
                     float(x) for x in label
@@ -237,16 +305,49 @@ class RadarDataset(Dataset):
         return cls_targets, reg_targets, reg_masks
     
     def __getitem__(self, index):
-        points = self.read_point_cloud(self.point_cloud_files[index])
-        labels = self.read_labels(self.label_files[index])
-        file_name = os.path.basename(self.point_cloud_files[index]).replace('.bin', '')
+        if self.split == "train":
+            points = self.read_point_cloud(self.point_cloud_files[index])
+            labels = self.read_labels(self.label_files[index])
+            file_name = os.path.basename(self.point_cloud_files[index]).replace('.bin', '')
+            
+            points = self.preprocess_pointcloud(points)
+            pillars, pillar_centers, mask = self.create_pillar_features(points)
+            cls_targets, reg_targets, reg_masks = self.create_targets(labels)
+            
+            cls_targets = cls_targets if isinstance(cls_targets, torch.Tensor) else torch.from_numpy(cls_targets)
+            cls_targets = cls_targets.long()
+            
+            reg_targets = reg_targets if isinstance(reg_targets, torch.Tensor) else torch.from_numpy(reg_targets)
+            reg_targets = reg_targets.float()
+            
+            reg_masks = reg_masks if isinstance(reg_masks, torch.Tensor) else torch.from_numpy(reg_masks)
+            reg_masks = reg_masks.bool()
+            
+        elif self.split == "val":
+            points = self.read_point_cloud(self.point_cloud_files[index])
+            labels = self.read_labels(self.label_files[index])
+            file_name = os.path.basename(self.point_cloud_files[index]).replace('.bin', '')
+            
+            points = self.preprocess_pointcloud(points)
+            pillars, pillar_centers, mask = self.create_pillar_features(points)
+            cls_targets, reg_targets, reg_masks = self.create_targets(labels)
+            
+            cls_targets = cls_targets if isinstance(cls_targets, torch.Tensor) else torch.from_numpy(cls_targets)
+            cls_targets = cls_targets.long()
+            
+            reg_targets = reg_targets if isinstance(reg_targets, torch.Tensor) else torch.from_numpy(reg_targets)
+            reg_targets = reg_targets.float()
+            
+            reg_masks = reg_masks if isinstance(reg_masks, torch.Tensor) else torch.from_numpy(reg_masks)
+            reg_masks = reg_masks.bool()
+            
+        else: # for inference
+            points = self.read_point_cloud(self.point_cloud_files[index])
+            file_name = os.path.basename(self.point_cloud_files[index]).replace('.bin', '')
+            
+            points = self.preprocess_pointcloud(points)
+            pillars, pillar_centers, mask = self.create_pillar_features(points)
         
-        points = self.preprocess_pointcloud(points)
-        
-        pillars, pillar_centers, mask = self.create_pillar_features(points)
-        
- 
-        cls_targets, reg_targets, reg_masks = self.create_targets(labels)
         
         if len(points) == 0:
             points = torch.zeros((self.config.max_pillars, self.config.max_points_per_pillar, 4), dtype=torch.float32)
@@ -274,18 +375,11 @@ class RadarDataset(Dataset):
             
             points = final_points.unsqueeze(1).expand(-1, self.config.max_points_per_pillar, -1)
             center_coords = final_centers
-   
+
         mask = mask if isinstance(mask, torch.Tensor) else torch.from_numpy(mask)
         mask = mask.float()
         
-        cls_targets = cls_targets if isinstance(cls_targets, torch.Tensor) else torch.from_numpy(cls_targets)
-        cls_targets = cls_targets.long()
         
-        reg_targets = reg_targets if isinstance(reg_targets, torch.Tensor) else torch.from_numpy(reg_targets)
-        reg_targets = reg_targets.float()
-        
-        reg_masks = reg_masks if isinstance(reg_masks, torch.Tensor) else torch.from_numpy(reg_masks)
-        reg_masks = reg_masks.bool()
 
         assert points.shape == (self.config.max_pillars, self.config.max_points_per_pillar, 4), \
             f"Expected points shape {(self.config.max_pillars, self.config.max_points_per_pillar, 4)}, got {points.shape}"
@@ -293,5 +387,9 @@ class RadarDataset(Dataset):
             f"Expected center_coords shape {(self.config.max_pillars, 3)}, got {center_coords.shape}"
         assert mask.shape == (self.config.num_pillars_y, self.config.num_pillars_x), \
             f"Expected mask shape {(self.config.num_pillars_y, self.config.num_pillars_x)}, got {mask.shape}"
-        
-        return pillars, pillar_centers, mask, cls_targets, reg_targets, reg_masks, file_name
+        if self.split == "train":
+            return pillars, pillar_centers, mask, cls_targets, reg_targets, reg_masks, file_name
+        elif self.split == "val":
+            return pillars, pillar_centers, mask, cls_targets, reg_targets, reg_masks, file_name
+        else:
+            return pillars, pillar_centers, mask, file_name
